@@ -120,8 +120,19 @@ qubit mapping, and a per-gate execution trace. The format is documented in
 
 ## Citing
 
-If you use QuStitch in your research, please cite this repository (see
-[CITATION.cff](CITATION.cff)) and the XQsim paper:
+If you use QuStitch in your research, please cite our QCE 2026 paper:
+
+```bibtex
+@inproceedings{tsuboi2026qustitch,
+  title     = {QuStitch: An Interactive Multi-Level Visualization for Lattice Surgery Quantum Computation},
+  author    = {Seita Tsuboi and Leo Itoh and Takuya Kasamura and Junichiro Kadomoto},
+  booktitle = {IEEE International Conference on Quantum Computing and Engineering (QCE)},
+  month     = {9},
+  year      = {2026}
+}
+```
+
+QuStitch builds on XQsim; please also cite:
 
 > I. Byun, J. Kim, D. Min, I. Nagaoka, K. Fukumitsu, I. Ishikawa, T. Tanimoto,
 > M. Tanaka, K. Inoue, J. Kim, "XQsim: Modeling Cross-Technology Control

@@ -1,10 +1,16 @@
 cff-version: 1.2.0
-message: "If you use QuStitch in your research, please cite it as below."
-title: "QuStitch: Interactive visualization of lattice-surgery execution traces"
+message: "If you use QuStitch in your research, please cite the QCE 2026 paper below."
+title: "QuStitch: An Interactive Multi-Level Visualization for Lattice Surgery Quantum Computation"
 type: software
 authors:
   - family-names: Tsuboi
     given-names: Seita
+  - family-names: Itoh
+    given-names: Leo
+  - family-names: Kasamura
+    given-names: Takuya
+  - family-names: Kadomoto
+    given-names: Junichiro
 repository-code: "https://github.com/kadomoto-lab/QuStitch"
 license: MIT
 version: 1.0.0
@@ -15,6 +21,21 @@ keywords:
   - lattice surgery
   - visualization
   - fault-tolerant quantum computing
+preferred-citation:
+  type: conference-paper
+  title: "QuStitch: An Interactive Multi-Level Visualization for Lattice Surgery Quantum Computation"
+  authors:
+    - family-names: Tsuboi
+      given-names: Seita
+    - family-names: Itoh
+      given-names: Leo
+    - family-names: Kasamura
+      given-names: Takuya
+    - family-names: Kadomoto
+      given-names: Junichiro
+  collection-title: "IEEE International Conference on Quantum Computing and Engineering (QCE)"
+  month: 9
+  year: 2026
 references:
   - type: conference-paper
     title: "XQsim: modeling cross-technology control processors for 10+K qubit quantum computers"
