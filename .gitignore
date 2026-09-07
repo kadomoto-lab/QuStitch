@@ -1,0 +1,34 @@
+# OS / editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Node
+node_modules/
+frontend/dist/
+frontend/coverage/
+*.log
+
+# Python
+__pycache__/
+*.py[cod]
+.venv*/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Environment
+.env
+.env.*
+
+# Backend artifacts generated while tracing (api_<uuid>_n<N>.*)
+backend/xqsim/quantum_circuits/*/api_*
+backend/xqsim/XQ-simulator/simres/**/api_*
+backend/output/
+
+# Backend batch summaries
+backend/test_results_*/

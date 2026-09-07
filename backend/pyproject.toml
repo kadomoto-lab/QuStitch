@@ -1,0 +1,56 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "qustitch-trace"
+version = "1.0.0"
+description = "QuStitch trace generator: OpenQASM 2.0 -> XQsim lattice-surgery patch trace (JSON), with a FastAPI server"
+readme = "README.md"
+requires-python = ">=3.10"
+# Exact, tested pins live in requirements.txt (the upstream XQsim pin set).
+dependencies = [
+    "numpy",
+    "qiskit",
+    "pytket",
+    "pytket-qiskit",
+    "ray",
+    "pandas",
+    "parse",
+    "absl-py",
+    "stim",
+    "matplotlib",
+    "ipython",
+    "fastapi",
+    "pydantic<2",
+    "uvicorn",
+]
+
+[project.optional-dependencies]
+dev = ["pytest", "ruff"]
+
+[project.scripts]
+qustitch-trace = "qustitch_trace.cli:main"
+
+[tool.setuptools]
+packages = ["qustitch_trace"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+# backend/xqsim is vendored upstream code and is kept byte-identical; never lint or format it.
+extend-exclude = ["xqsim", "test_results_*"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.ruff.lint.per-file-ignores]
+# The tools are runnable as plain scripts and must put backend/ on sys.path before importing.
+"tools/*.py" = ["E402"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["qustitch_trace", "tools"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"

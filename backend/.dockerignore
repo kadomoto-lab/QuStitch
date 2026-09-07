@@ -1,0 +1,31 @@
+.git
+.gitignore
+.DS_Store
+
+# Local virtualenvs / Python caches
+.venv
+venv
+__pycache__
+**/__pycache__
+*.pyc
+*.pyo
+*.pyd
+*.egg-info
+.pytest_cache
+.mypy_cache
+.ruff_cache
+
+# Jupyter
+.ipynb_checkpoints
+
+# Tests and local outputs / dumps
+tests
+test_results_*
+**/*.stat
+**/*.pqsim
+**/simres/**
+xqsim/quantum_circuits/**/api_*
+
+# IDE
+.vscode
+.idea

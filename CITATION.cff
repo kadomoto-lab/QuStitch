@@ -1,0 +1,45 @@
+cff-version: 1.2.0
+message: "If you use QuStitch in your research, please cite it as below."
+title: "QuStitch: Interactive visualization of lattice-surgery execution traces"
+type: software
+authors:
+  - family-names: Tsuboi
+    given-names: Seita
+repository-code: "https://github.com/kadomoto-lab/QuStitch"
+license: MIT
+version: 1.0.0
+date-released: 2026-09-07
+keywords:
+  - quantum computing
+  - surface code
+  - lattice surgery
+  - visualization
+  - fault-tolerant quantum computing
+references:
+  - type: conference-paper
+    title: "XQsim: modeling cross-technology control processors for 10+K qubit quantum computers"
+    authors:
+      - family-names: Byun
+        given-names: Ilkwon
+      - family-names: Kim
+        given-names: Junpyo
+      - family-names: Min
+        given-names: Dongmoon
+      - family-names: Nagaoka
+        given-names: Ikki
+      - family-names: Fukumitsu
+        given-names: Kosuke
+      - family-names: Ishikawa
+        given-names: Iori
+      - family-names: Tanimoto
+        given-names: Teruo
+      - family-names: Tanaka
+        given-names: Masamitsu
+      - family-names: Inoue
+        given-names: Koji
+      - family-names: Kim
+        given-names: Jangwoo
+    collection-title: "Proceedings of the 49th Annual International Symposium on Computer Architecture (ISCA '22)"
+    year: 2022
+    start: 366
+    end: 382
