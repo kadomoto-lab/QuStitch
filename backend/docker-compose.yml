@@ -6,7 +6,7 @@ services:
     platform: linux/amd64
     shm_size: "2gb"
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     environment:
       - PYTHONUNBUFFERED=1
-      - XQSIM_TRACE_TIMEOUT_SECONDS=86400  # 24 hours (effectively unlimited)
+      - XQSIM_TRACE_TIMEOUT_SECONDS=7200  # 2 hours

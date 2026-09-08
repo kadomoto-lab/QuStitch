@@ -5,8 +5,8 @@ trace**: a cycle-accurate JSON time series of how the surface-code patches are
 prepared, merged and split while the circuit runs on the
 [XQsim](https://github.com/SNU-HPCS/XQsim) quantum control processor simulator.
 
-XQsim's compiler and simulator are vendored unchanged in `xqsim/` (see
-[`UPSTREAM.md`](./UPSTREAM.md) for the few opt-in modifications). Everything under
+XQsim's compiler and simulator are vendored in `xqsim/` (see
+[`UPSTREAM.md`](./UPSTREAM.md) for the documented modifications). Everything under
 `qustitch_trace/` is an input/output layer around them: it compiles the circuit, steps
 the simulator cycle by cycle, observes the patch information unit and serialises the
 result.
@@ -24,6 +24,10 @@ backend/
 
 ## Quick start (Docker)
 
+The Compose configuration publishes the API on `127.0.0.1` only. It is not a
+public multi-tenant service; put authentication and rate limiting in front of
+it before deliberately exposing it to a network.
+
 ```bash
 docker compose build backend
 docker compose up -d backend
@@ -35,7 +39,12 @@ curl -X POST http://localhost:8000/trace \
 
 ## Local setup
 
-Python 3.10 is recommended (the upstream pins target it).
+Python 3.10 is recommended (the upstream pins target it). Full local trace
+generation currently targets Linux x86-64. It also requires the GPL-licensed
+`gridsynth` executable from newsynth 0.3.0.4 at
+`xqsim/compiler/gridsynth`; see the source and installation options in
+[`THIRD_PARTY_NOTICES.md`](../THIRD_PARTY_NOTICES.md). Docker is the supported
+cross-host setup and fetches the executable with SHA-256 verification.
 
 ```bash
 python -m venv .venv && source .venv/bin/activate
@@ -52,8 +61,11 @@ python -m qustitch_trace --help
 Run the API server:
 
 ```bash
-uvicorn qustitch_trace.api:app --host 0.0.0.0 --port 8000 --workers 1
+uvicorn qustitch_trace.api:app --host 127.0.0.1 --port 8000 --workers 1
 ```
+
+To require bearer authentication on `POST /trace`, set a strong
+`XQSIM_API_KEY` before starting the server. `GET /health` remains unauthenticated.
 
 Tools (run from `backend/`):
 
@@ -84,8 +96,6 @@ Request body:
 | --- | --- | --- |
 | `qasm` | (required) | OpenQASM 2.0 text |
 | `config` | `"example_cmos_d5"` | config name under `xqsim/configs/` (without `.json`) |
-| `keep_artifacts` | `false` | keep the generated compiler files |
-| `debug_logging` | `false` | verbose logging |
 | `include_physical_schedule` | `false` | include the sparse PSU physical operation schedule |
 | `physical_schedule_start_cycle` / `physical_schedule_end_cycle` | `null` | window for the physical schedule |
 | `max_physical_schedule_frames` | `1000` | frame cap for the physical schedule |
@@ -100,6 +110,11 @@ Notes:
 - A trace can take from minutes to well over an hour depending on the circuit.
 - Only one trace runs at a time (a concurrent request gets `429`).
 - Errors from the simulator map to `400`, timeouts to `504`.
+- Debug logging and retained compiler artifacts are CLI-only options; the HTTP
+  API rejects them.
+- The API is intended for trusted local use. An internet-facing deployment
+  additionally needs a reverse proxy, authentication, rate limiting and
+  container resource limits.
 
 ### Environment variables
 
@@ -109,7 +124,10 @@ Notes:
 | `XQSIM_MAX_QUBITS` | `20` |
 | `XQSIM_MAX_DEPTH` | `1000` |
 | `XQSIM_MAX_INSTRUCTIONS` | `10000` |
-| `XQSIM_TRACE_TIMEOUT_SECONDS` | `300` (`86400` in `docker-compose.yml`) |
+| `XQSIM_TRACE_TIMEOUT_SECONDS` | `300` (`7200` in `docker-compose.yml`) |
+| `XQSIM_GRIDSYNTH_TIMEOUT_SECONDS` | `300` |
+| `XQSIM_MAX_PHYSICAL_SCHEDULE_FRAMES` | `1000` |
+| `XQSIM_API_KEY` | unset (authentication disabled) |
 | `XQSIM_RAY_OBJECT_STORE_MB` | `256` |
 | `XQSIM_RAY_NUM_CPUS` | `1` |
 | `XQSIM_DEBUG_LOG_INTERVAL` | `1000` |

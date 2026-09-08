@@ -30,5 +30,8 @@ backend/xqsim/quantum_circuits/*/api_*
 backend/xqsim/XQ-simulator/simres/**/api_*
 backend/output/
 
+# GPL-licensed gridsynth is fetched and verified while building the backend image.
+backend/xqsim/compiler/gridsynth
+
 # Backend batch summaries
 backend/test_results_*/

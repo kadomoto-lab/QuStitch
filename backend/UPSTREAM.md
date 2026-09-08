@@ -11,10 +11,13 @@ the vendored copy:
 - `XQ-estimator/` (hardware estimation)
 - the Jupyter notebooks and `figures/`
 - the top-level drivers `xqsim.py`, `gen_single_esm.py` and `logical_simulation.py`
+- the GPL-licensed prebuilt `compiler/gridsynth` executable (the Docker build
+  fetches and verifies the official binary instead; see `../THIRD_PARTY_NOTICES.md`)
 
 Everything that remains is byte-identical to upstream **except** the four files listed
-below. Every change is an opt-in extension or a bookkeeping addition: with the flags left
-at their defaults the modified units behave exactly like upstream.
+below. The simulator extensions are opt-in and preserve upstream behaviour when disabled;
+the compiler tracing, angle normalisation and process timeout are active changes documented
+below.
 
 ## Modified files
 
@@ -35,6 +38,9 @@ at their defaults the modified units behave exactly like upstream.
   multiples of pi/4 (`0`, `1/4`, `1/2`, `3/4`, `1`, `5/4`, `3/2`, `7/4`), so e.g.
   `rz(pi/2)` becomes `S` and `rz(-pi/4)` becomes `T S S S` instead of being sent to
   gridsynth. Angles that are not multiples of pi/4 still go through gridsynth as upstream.
+- **External process timeout.** The `gridsynth` invocation has a configurable wall-clock
+  timeout (`XQSIM_GRIDSYNTH_TIMEOUT_SECONDS`, default 300 seconds) so malformed or unusually
+  expensive input cannot hold an API worker indefinitely.
 
 ### `XQ-simulator/pauliframe_unit.py`
 

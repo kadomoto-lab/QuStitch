@@ -80,7 +80,13 @@ curl -X POST http://localhost:8000/trace \
   > trace.json
 ```
 
-With a local Python 3.10 environment:
+Docker Compose binds the API to the local machine only. Before exposing it to
+other hosts, enable the optional API key and add a rate-limiting reverse proxy;
+see [backend/README.md](backend/README.md).
+
+With a local Python 3.10 environment on Linux x86-64 (install the GPL-licensed
+`gridsynth` executable separately as described in
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)):
 
 ```bash
 cd backend
@@ -143,7 +149,10 @@ Large-Scale Quantum Computing with Lattice Surgery," Quantum 3, 128 (2019).
 
 ## License
 
-QuStitch is released under the [MIT License](LICENSE). The vendored XQsim code
-in `backend/xqsim/` is © 2023 SNU-HPCS, MIT License; see
+QuStitch's original source is released under the [MIT License](LICENSE). The
+vendored XQsim code in `backend/xqsim/` is © 2023 SNU-HPCS, MIT License.
+XQsim's optional `gridsynth` tool is GPLv3-or-later and is fetched during the
+Docker build rather than kept in the current source tree. See
 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and
-[backend/UPSTREAM.md](backend/UPSTREAM.md) for the list of modifications.
+[backend/UPSTREAM.md](backend/UPSTREAM.md) for details and the list of XQsim
+modifications.

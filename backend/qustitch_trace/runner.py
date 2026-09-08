@@ -157,11 +157,14 @@ def _prepare_circuit(
     )
 
 
-def _compile_circuit(xq: XqsimModules, prepared: _PreparedCircuit) -> _CompiledCircuit:
+def _compile_circuit(
+    xq: XqsimModules,
+    prepared: _PreparedCircuit,
+    *,
+    job_name: str,
+    paths: ArtifactPaths,
+) -> _CompiledCircuit:
     """3) Generate file-based artifacts using the existing compiler pipeline."""
-    job_name = make_job_name(prepared.num_compile_qubits)
-    paths = artifact_paths(job_name)
-
     paths.qasm.parent.mkdir(parents=True, exist_ok=True)
     with open(paths.qasm, "w", encoding="utf-8") as f:
         f.write(prepared.qasm_for_compile)
@@ -546,7 +549,9 @@ def _build_response(
 
 
 def _cleanup_artifacts(
-    paths: ArtifactPaths, trace_meta: TraceMetadata, response: dict[str, Any]
+    paths: ArtifactPaths,
+    trace_meta: TraceMetadata,
+    response: dict[str, Any] | None,
 ) -> None:
     """6) Remove the generated qasm/qtrp/qisa/qbin files, recording any failure in ``meta``."""
     for p in paths:
@@ -559,7 +564,7 @@ def _cleanup_artifacts(
             trace_meta.cleanup_errors.append(f"{p}: {e}")
             logger.warning(f"Failed to cleanup {p}: {e}")
 
-    if trace_meta.cleanup_failed:
+    if trace_meta.cleanup_failed and response is not None:
         response["meta"]["cleanup_failed"] = True
         response["meta"]["cleanup_errors"] = trace_meta.cleanup_errors
 
@@ -621,47 +626,61 @@ def trace_patches_from_qasm(
         force_logical_oracle=force_logical_oracle,
     )
 
-    # Path bootstrap and imports of the existing modules (their code is untouched)
-    xq = load_xqsim()
+    paths: ArtifactPaths | None = None
+    response: dict[str, Any] | None = None
+    try:
+        # Path bootstrap and imports of the existing modules (their code is untouched)
+        xq = load_xqsim()
 
-    prepared = _prepare_circuit(xq, qasm_str, trace_meta)
-    compiled = _compile_circuit(xq, prepared)
-    sim = _setup_simulator(xq, job_name=compiled.job_name, num_lq=prepared.num_lq, options=options)
-    oracle = _install_workarounds(
-        sim,
-        trace_meta,
-        qisa_lines=compiled.qisa_lines,
-        num_lq=prepared.num_lq,
-        options=options,
-    )
+        prepared = _prepare_circuit(xq, qasm_str, trace_meta)
+        job_name = make_job_name(prepared.num_compile_qubits)
+        paths = artifact_paths(job_name)
+        compiled = _compile_circuit(
+            xq,
+            prepared,
+            job_name=job_name,
+            paths=paths,
+        )
+        sim = _setup_simulator(
+            xq,
+            job_name=compiled.job_name,
+            num_lq=prepared.num_lq,
+            options=options,
+        )
+        oracle = _install_workarounds(
+            sim,
+            trace_meta,
+            qisa_lines=compiled.qisa_lines,
+            num_lq=prepared.num_lq,
+            options=options,
+        )
 
-    # The initial snapshot is taken after all wrappers are installed.
-    patch_initial = take_full_patch_snapshot(sim)
+        # The initial snapshot is taken after all wrappers are installed.
+        patch_initial = take_full_patch_snapshot(sim)
 
-    loop = _run_cycle_loop(
-        sim,
-        trace_meta,
-        options=options,
-        start_time=start_time,
-        qisa_lines=compiled.qisa_lines,
-        patch_initial=patch_initial,
-    )
+        loop = _run_cycle_loop(
+            sim,
+            trace_meta,
+            options=options,
+            start_time=start_time,
+            qisa_lines=compiled.qisa_lines,
+            patch_initial=patch_initial,
+        )
 
-    elapsed_time = time.time() - start_time
-    response = _build_response(
-        sim,
-        trace_meta,
-        options=options,
-        qasm_str=qasm_str,
-        prepared=prepared,
-        compiled=compiled,
-        patch_initial=patch_initial,
-        loop=loop,
-        oracle=oracle,
-        elapsed_time=elapsed_time,
-    )
-
-    if not keep_artifacts:
-        _cleanup_artifacts(compiled.paths, trace_meta, response)
-
-    return response
+        elapsed_time = time.time() - start_time
+        response = _build_response(
+            sim,
+            trace_meta,
+            options=options,
+            qasm_str=qasm_str,
+            prepared=prepared,
+            compiled=compiled,
+            patch_initial=patch_initial,
+            loop=loop,
+            oracle=oracle,
+            elapsed_time=elapsed_time,
+        )
+        return response
+    finally:
+        if paths is not None and not keep_artifacts:
+            _cleanup_artifacts(paths, trace_meta, response)

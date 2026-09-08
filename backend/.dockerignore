@@ -25,6 +25,7 @@ test_results_*
 **/*.pqsim
 **/simres/**
 xqsim/quantum_circuits/**/api_*
+xqsim/compiler/gridsynth
 
 # IDE
 .vscode

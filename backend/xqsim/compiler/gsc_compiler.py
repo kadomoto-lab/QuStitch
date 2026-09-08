@@ -579,10 +579,31 @@ def rz_approximate_synthesis (angle, precision_eps = 1e-10):
             prec = -1 * (int(str(precision_eps)[str(precision_eps).find("e")+1:]) + exponent)
             angle = "pi*" + "{0:.{prec}f}".format(float(angle[3:]), prec=prec)
 
+        gridsynth_timeout = float(os.environ.get("XQSIM_GRIDSYNTH_TIMEOUT_SECONDS", "300"))
         if os.name == "nt": # Windows
-            result = subprocess.run([".\gridsynth.exe", str(angle), "--rseed=10", "--epsilon", str(precision_eps)], stdout=subprocess.PIPE) # default precision epsilon=1e-10
+            gridsynth_cmd = [r".\gridsynth.exe", str(angle), "--rseed=10", "--epsilon", str(precision_eps)]
         else: # Linux
-            result = subprocess.run([os.path.join(curr_dir, "gridsynth"), str(angle), "--rseed=10", "--epsilon", str(precision_eps)], stdout=subprocess.PIPE) # default precision epsilon=1e-10
+            gridsynth_cmd = [os.path.join(curr_dir, "gridsynth"), str(angle), "--rseed=10", "--epsilon", str(precision_eps)]
+        try:
+            result = subprocess.run(
+                gridsynth_cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                timeout=gridsynth_timeout,
+                check=True,
+            ) # default precision epsilon=1e-10
+        except FileNotFoundError as exc:
+            raise RuntimeError(
+                "gridsynth is not installed; see THIRD_PARTY_NOTICES.md"
+            ) from exc
+        except subprocess.TimeoutExpired as exc:
+            raise RuntimeError(
+                "gridsynth exceeded XQSIM_GRIDSYNTH_TIMEOUT_SECONDS={}"
+                .format(gridsynth_timeout)
+            ) from exc
+        except subprocess.CalledProcessError as exc:
+            stderr = exc.stderr.decode("utf-8", errors="replace").strip()
+            raise RuntimeError("gridsynth failed: {}".format(stderr or exc.returncode)) from exc
         result_str = result.stdout.decode("utf-8")
         result_mat_order         = [op for op in list(result_str)]
         result_circ_order = list(reversed(result_mat_order))

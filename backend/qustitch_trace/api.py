@@ -13,27 +13,30 @@ Operational constraints:
     - Running uvicorn with ``--workers 1`` is recommended.
     - Intercepting ``sys.exit`` affects the whole process, so concurrent
       execution is unsafe.
+    - The server is intended for trusted local use. Set ``XQSIM_API_KEY`` and
+      add a rate-limiting reverse proxy before exposing it to a network.
 
-Run with: ``uvicorn qustitch_trace.api:app --host 0.0.0.0 --port 8000``
+Run with: ``uvicorn qustitch_trace.api:app --host 127.0.0.1 --port 8000``
 """
 
 from __future__ import annotations
 
 import logging
 import os
+import secrets
 import threading
 import time
-import traceback
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Any
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, Header, HTTPException
 from pydantic import BaseModel, Field, validator
 
 from . import __version__
 from .ray_setup import init_ray_once, shutdown_ray
 from .runner import DEFAULT_CONFIG_NAME, trace_patches_from_qasm
+from .xqsim_bridge import XQSIM_CONFIG_DIR
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +51,11 @@ MAX_QUBITS = int(os.environ.get("XQSIM_MAX_QUBITS", "20"))
 MAX_DEPTH = int(os.environ.get("XQSIM_MAX_DEPTH", "1000"))
 MAX_INSTRUCTIONS = int(os.environ.get("XQSIM_MAX_INSTRUCTIONS", "10000"))
 TRACE_TIMEOUT_SECONDS = int(os.environ.get("XQSIM_TRACE_TIMEOUT_SECONDS", "300"))  # 5 minutes
+MAX_PHYSICAL_SCHEDULE_FRAMES = max(
+    1, int(os.environ.get("XQSIM_MAX_PHYSICAL_SCHEDULE_FRAMES", "1000"))
+)
+API_KEY = os.environ.get("XQSIM_API_KEY") or None
+AVAILABLE_CONFIGS = frozenset(path.stem for path in XQSIM_CONFIG_DIR.glob("*.json"))
 
 
 @asynccontextmanager
@@ -84,8 +92,6 @@ class TraceRequest(BaseModel):
         DEFAULT_CONFIG_NAME,
         description="Config name under xqsim/configs (without .json)",
     )
-    keep_artifacts: bool = Field(False, description="Keep intermediate artifacts (debug)")
-    debug_logging: bool = Field(False, description="Enable verbose debug logging")
     include_physical_schedule: bool = Field(
         False, description="Include sparse XQsim PSU physical operation schedule"
     )
@@ -96,17 +102,27 @@ class TraceRequest(BaseModel):
         None, ge=0, description="End cycle for physical schedule collection"
     )
     max_physical_schedule_frames: int = Field(
-        1000,
+        min(1000, MAX_PHYSICAL_SCHEDULE_FRAMES),
         ge=1,
-        le=100000,
+        le=MAX_PHYSICAL_SCHEDULE_FRAMES,
         description="Maximum sparse physical schedule frames to return",
     )
+
+    class Config:
+        extra = "forbid"
 
     @validator("qasm")
     def validate_qasm_size(cls, v: str) -> str:
         size = len(v.encode("utf-8"))
         if size > MAX_QASM_SIZE_BYTES:
             raise ValueError(f"QASM size exceeds limit: {size} bytes > {MAX_QASM_SIZE_BYTES} bytes")
+        return v
+
+    @validator("config")
+    def validate_config(cls, v: str) -> str:
+        if v not in AVAILABLE_CONFIGS:
+            allowed = ", ".join(sorted(AVAILABLE_CONFIGS))
+            raise ValueError(f"Unknown config {v!r}; allowed values: {allowed}")
         return v
 
     @validator("physical_schedule_end_cycle")
@@ -127,6 +143,21 @@ class ErrorResponse(BaseModel):
     """Error body."""
 
     detail: str
+
+
+def require_api_key(authorization: str | None = Header(default=None)) -> None:
+    """Require a bearer token when ``XQSIM_API_KEY`` is configured."""
+    if API_KEY is None:
+        return
+
+    scheme, separator, token = (authorization or "").partition(" ")
+    valid = separator == " " and scheme.lower() == "bearer"
+    if not valid or not secrets.compare_digest(token, API_KEY):
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid or missing bearer token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
 
 def validate_circuit_limits(qc: Any) -> None:
@@ -162,7 +193,9 @@ def health() -> dict[str, Any]:
             "max_depth": MAX_DEPTH,
             "max_instructions": MAX_INSTRUCTIONS,
             "trace_timeout_seconds": TRACE_TIMEOUT_SECONDS,
+            "max_physical_schedule_frames": MAX_PHYSICAL_SCHEDULE_FRAMES,
         },
+        "authentication_required": API_KEY is not None,
     }
 
 
@@ -170,10 +203,12 @@ def health() -> dict[str, Any]:
     "/trace",
     response_model=TraceResponse,
     responses={
+        401: {"model": ErrorResponse, "description": "Invalid or missing API key"},
         429: {"model": ErrorResponse, "description": "Trace already in progress"},
         400: {"model": ErrorResponse, "description": "Invalid input or simulation error"},
         504: {"model": ErrorResponse, "description": "Trace timeout"},
     },
+    dependencies=[Depends(require_api_key)],
 )
 def trace(req: TraceRequest) -> TraceResponse:
     """Generate a patch trace from QASM.
@@ -217,8 +252,8 @@ def trace(req: TraceRequest) -> TraceResponse:
             req.qasm,
             config_name=req.config,
             skip_pqsim=True,
-            keep_artifacts=req.keep_artifacts,
-            debug_logging=req.debug_logging,
+            keep_artifacts=False,
+            debug_logging=False,
             timeout_seconds=TRACE_TIMEOUT_SECONDS,
             include_physical_schedule=req.include_physical_schedule,
             physical_schedule_start_cycle=req.physical_schedule_start_cycle,
@@ -239,17 +274,16 @@ def trace(req: TraceRequest) -> TraceResponse:
     except HTTPException:
         raise
     except FileNotFoundError as e:
-        raise HTTPException(status_code=400, detail=str(e)) from e
+        logger.exception("Required backend file is unavailable")
+        raise HTTPException(status_code=500, detail="Required backend file is unavailable") from e
     except TimeoutError as e:
         raise HTTPException(status_code=504, detail=f"Trace timeout: {e}") from e
     except RuntimeError as e:
-        tb = traceback.format_exc()
-        logger.error("Simulation error in /trace: %s\n%s", repr(e), tb)
-        raise HTTPException(status_code=400, detail=f"Simulation error: {e}") from e
+        logger.exception("Simulation error in /trace")
+        raise HTTPException(status_code=400, detail="Simulation failed") from e
     except Exception as e:
-        tb = traceback.format_exc()
-        logger.error("Unhandled exception in /trace: %s\n%s", repr(e), tb)
-        raise HTTPException(status_code=500, detail=f"{type(e).__name__}: {e}") from e
+        logger.exception("Unhandled exception in /trace")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
     finally:
         _trace_in_progress = False
         _trace_start_time = None
